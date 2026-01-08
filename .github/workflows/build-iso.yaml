@@ -33,12 +33,10 @@ jobs:
       - name: Setup Mkosi
         uses: systemd/mkosi@v26
 
-      - name: Install dependencies
-        run: pnpm install
-
       - name: Build App
         run: |
           cd app
+          pnpm install
           pnpm tauri build
 
       - name: Build ISO with mkosi
