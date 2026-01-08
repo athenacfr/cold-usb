@@ -1,0 +1,59 @@
+name: Release ISO
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain:
+          - stable
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: "pnpm"
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          cache: true
+
+      - name: Setup Mkosi
+        uses: systemd/mkosi@v26
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build App
+        run: |
+          cd app
+          pnpm tauri build
+
+      - name: Build ISO with mkosi
+        run: mkosi
+
+      - name: Verify ISO exists
+        run: ls -lh mkosi.iso
+
+      - name: Create SHA256 checksum
+        run: sha256sum mkosi.iso > mkosi.iso.sha256
+
+      - name: Upload ISO to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            mkosi.iso
+            mkosi.iso.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
