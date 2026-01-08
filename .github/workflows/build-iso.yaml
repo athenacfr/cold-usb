@@ -28,6 +28,7 @@ jobs:
         with:
           node-version: lts/*
           cache: "pnpm"
+          cache-dependency-path: app/pnpm-lock.yaml
 
       - name: Setup Mkosi
         uses: systemd/mkosi@v26
