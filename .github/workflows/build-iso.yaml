@@ -48,7 +48,9 @@ jobs:
           pnpm tauri build
 
       - name: Build ISO with mkosi
-        run: mkosi
+        run: |
+          cd iso
+          mkosi --debug
 
       - name: Verify ISO exists
         run: ls -lh mkosi.iso
