@@ -13,6 +13,9 @@ jobs:
         toolchain:
           - stable
 
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,6 +32,11 @@ jobs:
           node-version: lts/*
           cache: "pnpm"
           cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: Setup Tauri
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
       - name: Setup Mkosi
         uses: systemd/mkosi@v26
