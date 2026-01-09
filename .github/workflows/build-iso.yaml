@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: lts/*
           cache: "pnpm"
-          cache-dependency-path: app/pnpm-lock.yaml
+          cache-dependency-path: wallet/pnpm-lock.yaml
 
       - name: Setup Tauri
         run: |
@@ -41,9 +41,9 @@ jobs:
       - name: Setup Mkosi
         uses: systemd/mkosi@v26
 
-      - name: Build App
+      - name: Build Wallet App
         run: |
-          cd app
+          cd wallet
           pnpm install
           pnpm tauri build
 
