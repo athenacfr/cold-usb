@@ -82,10 +82,7 @@ jobs:
         run: mkosi
 
       - name: Verify IMG exists
-        run: |
-          ls -lh cold-usb.raw
-          mv cold-usb.raw cold-usb.img
-          ls
+        run: ls
 
       - name: Upload IMG to Release
         uses: softprops/action-gh-release@v2
