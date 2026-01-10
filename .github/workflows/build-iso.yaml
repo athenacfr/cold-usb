@@ -53,16 +53,16 @@ jobs:
       - name: Verify IMG exists
         run: |
           ls -lh mkosi.raw
-          mv mkosi.raw cold-drive-wallet.img
+          mv mkosi.raw cold-usb.img
 
       - name: Create SHA256 checksum
-        run: sha256sum cold-drive-wallet.img > cold-drive-wallet.img.sha256
+        run: sha256sum cold-usb.img > cold-usb.img.sha256
 
       - name: Upload ISO to release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            cold-drive-wallet.img
-            cold-drive-wallet.img.sha256
+            cold-usb.img
+            cold-usb.img.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
