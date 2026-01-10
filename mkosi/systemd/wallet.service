@@ -1,5 +1,5 @@
 [Unit]
-Description=Cold Wallet App
+Description=Cold Drive Wallet
 After=weston.service
 
 [Service]
