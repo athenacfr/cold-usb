@@ -48,21 +48,21 @@ jobs:
           pnpm tauri build
 
       - name: Build ISO with mkosi
-        run: |
-          cd iso
-          mkosi --debug
+        run: mkosi --debug
 
-      - name: Verify ISO exists
-        run: ls -lh mkosi.iso
+      - name: Verify IMG exists
+        run: |
+          ls -lh mkosi.raw
+          mv mkosi.raw mkosi.img
 
       - name: Create SHA256 checksum
-        run: sha256sum mkosi.iso > mkosi.iso.sha256
+        run: sha256sum mkosi.img > mkosi.img.sha256
 
       - name: Upload ISO to release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            mkosi.iso
-            mkosi.iso.sha256
+            mkosi.img
+            mkosi.img.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
