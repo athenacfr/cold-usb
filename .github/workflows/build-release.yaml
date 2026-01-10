@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  build-iso:
+  build-wallet:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -33,7 +33,7 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: wallet/pnpm-lock.yaml
 
-      - name: Setup Tauri
+      - name: Setup Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
@@ -44,6 +44,21 @@ jobs:
           pnpm install
           pnpm tauri build
 
+      - name: Upload Wallet Binary
+        uses: actions/upload-artifact@v6
+        with:
+          name: wallet-binary
+          path: wallet/src-tauri/target/release/app
+
+  build-img:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    needs: build-wallet
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup Mkosi
         uses: systemd/mkosi@v26
 
@@ -52,27 +67,30 @@ jobs:
         with:
           python-version: 3.11
 
-      - name: Install MKosi dependencies
+      - name: Install Dependencies
         run: |
           pip install pefile
-          sudo apt install mtools
+          sudo apt install -y mtools
 
-      - name: Build IMG with mkosi
-        run: mkosi --debug
+      - name: Download Wallet Binary
+        uses: actions/download-artifact@v6
+        with:
+          name: wallet-binary
+          path: ./wallet/src-tauri/target/release/app
+
+      - name: Build IMG
+        run: mkosi
 
       - name: Verify IMG exists
         run: |
           ls -lh cold-usb.raw
           mv cold-usb.raw cold-usb.img
+          ls
 
-      - name: Create SHA256 checksum
-        run: sha256sum cold-usb.img > cold-usb.img.sha256
-
-      - name: Upload IMG to release
-        uses: softprops/action-gh-release@v1
+      - name: Upload IMG to Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref_type == 'tag'
         with:
           files: |
             cold-usb.img
             cold-usb.img.sha256
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
