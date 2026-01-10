@@ -1,0 +1,11 @@
+[Unit]
+Description=Cold Wallet App
+After=weston.service
+
+[Service]
+Environment=XDG_RUNTIME_DIR=/run
+ExecStart=/app/wallet
+Restart=always
+
+[Install]
+WantedBy=graphical.target
