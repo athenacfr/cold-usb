@@ -24,7 +24,6 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 10
-          cache: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -38,16 +37,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - name: Build Wallet Binary
+      - name: Build Cold USB Binary
         run: |
           cd wallet
           pnpm install
           pnpm tauri build
 
-      - name: Upload Wallet Binary
+      - name: Upload Cold USB Binary Artifact
         uses: actions/upload-artifact@v6
         with:
-          name: wallet-binary
+          name: cold_usb_bin
           path: wallet/src-tauri/target/release/app
 
   build-img:
@@ -75,28 +74,29 @@ jobs:
           pip install pefile
           sudo apt install -y mtools
 
-      - name: Download Wallet Binary
+      - name: Download Cold USB Binary Artifact
         uses: actions/download-artifact@v6
         with:
-          name: wallet-binary
+          name: cold_usb_bin
           path: ./wallet/src-tauri/target/release/app
+
+      - name: Bump IMG Version
+        run: mkosi bump
+
+      - name: Save IMG Version
+        id: version
+        run: echo "version=$(cat ./mkosi/mkosi.version)" >> $GITHUB_OUTPUT
 
       - name: Build IMG
         run: ./mkosi/build.bash
 
-      - name: Verify IMG exists
-        run: ls
-
       - name: Upload IMG to Release
         uses: softprops/action-gh-release@v2
-        if: github.ref_type == 'tag'
         with:
+          tag_name: v${{ steps.version.outputs.version }}
           files: |
-            cold-usb.img
-            cold-usb.img.sha256
-
-      - name: Bump Version
-        run: mkosi bump
+            build/cold_usb_${{ steps.version.outputs.version }}.img
+            build/cold_usb_${{ steps.version.outputs.version }}.SHA256SUMS
 
       - name: Commit Version Bump
         run: |
