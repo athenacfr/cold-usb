@@ -55,6 +55,9 @@ jobs:
     if: github.ref == 'refs/heads/main'
     needs: build-wallet
 
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -79,7 +82,7 @@ jobs:
           path: ./wallet/src-tauri/target/release/app
 
       - name: Build IMG
-        run: mkosi
+        run: ./mkosi/build.bash
 
       - name: Verify IMG exists
         run: ls
@@ -91,3 +94,14 @@ jobs:
           files: |
             cold-usb.img
             cold-usb.img.sha256
+
+      - name: Bump Version
+        run: mkosi bump
+
+      - name: Commit Version Bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ./mkosi/mkosi.version
+          git commit -m "chore: bump mkosi version" || exit 0
+          git push
