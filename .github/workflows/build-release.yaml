@@ -56,10 +56,25 @@ jobs:
 
     permissions:
       contents: write
+      issues: write
+      pull-requests: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: "pnpm"
 
       - name: Setup Mkosi
         uses: systemd/mkosi@v26
@@ -73,6 +88,7 @@ jobs:
         run: |
           pip install pefile
           sudo apt install -y mtools
+          pnpm install --frozen-lockfile
 
       - name: Download Cold USB Binary Artifact
         uses: actions/download-artifact@v6
@@ -80,28 +96,26 @@ jobs:
           name: cold_usb_bin
           path: ./wallet/src-tauri/target/release/app
 
-      - name: Bump IMG Version
-        run: mkosi bump
-
-      - name: Save IMG Version
+      - name: Get Release Version
         id: version
-        run: echo "version=$(cat ./mkosi/mkosi.version)" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEXT_VERSION=$(npx semantic-release --dry-run 2>&1 | grep -oP "next release version is \K[0-9]+\.[0-9]+\.[0-9]+" || echo "")
+          if [ -z "$NEXT_VERSION" ]; then
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "No release needed"
+          else
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build IMG
-        run: ./mkosi/build.bash
+        if: steps.version.outputs.should_release == 'true'
+        run: ./mkosi/build.bash --image-version ${{ steps.version.outputs.version }}
 
-      - name: Upload IMG to Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.version.outputs.version }}
-          files: |
-            build/cold_usb_${{ steps.version.outputs.version }}.img
-            build/cold_usb_${{ steps.version.outputs.version }}.SHA256SUMS
-
-      - name: Commit Version Bump
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ./mkosi/mkosi.version
-          git commit -m "chore: bump mkosi version" || exit 0
-          git push
+      - name: Release
+        if: steps.version.outputs.should_release == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
