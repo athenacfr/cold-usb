@@ -7,8 +7,14 @@
       "@semantic-release/github",
       {
         "assets": [
-          { "path": "build/cold_usb_*.img", "label": "Cold USB Image" },
-          { "path": "build/cold_usb_*.SHA256SUMS", "label": "SHA256 Checksums" }
+          {
+            "path": "mkosi/build/cold_usb_*.img",
+            "label": "Cold USB Disk Image"
+          },
+          {
+            "path": "mkosi/build/cold_usb_*.SHA256SUMS",
+            "label": "SHA256 Checksums"
+          }
         ]
       }
     ]
