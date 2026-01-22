@@ -1,0 +1,6 @@
+#!/bin/bash
+
+rm -rf /lib/modules/*/kernel/drivers/net
+rm -rf /lib/modules/*/kernel/drivers/bluetooth
+rm -rf /lib/modules/*/kernel/net/wireless
+rm -rf /lib/modules/*/kernel/net/bluetooth

@@ -1,0 +1,4 @@
+#!/bin/bash
+
+mkdir -p /opt/cold_usb
+cp /work/src/release/app /opt/cold_usb/cold_usb_bin
