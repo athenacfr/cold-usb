@@ -1,0 +1,38 @@
+{
+  "name": "@coldusb/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "vite build && electrobun dev",
+    "dev": "electrobun dev --watch",
+    "dev:hmr": "concurrently \"vite --port 5173\" \"vite build && electrobun dev\"",
+    "build:canary": "vite build && electrobun build --env=canary",
+    "build:stable": "vite build && electrobun build --env=stable"
+  },
+  "dependencies": {
+    "@coldusb/crypto": "workspace:*",
+    "@coldusb/wallet-core": "workspace:*",
+    "@coldusb/wallet-bitcoin": "workspace:*",
+    "@coldusb/storage": "workspace:*",
+    "electrobun": "latest",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-router-dom": "^7.1.2",
+    "zustand": "^5.0.2",
+    "zod": "^4.3.6",
+    "lucide-react": "^0.562.0",
+    "qrcode.react": "^4.0.1",
+    "qr-scanner": "^1.4.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.1.2",
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "tailwindcss": "^4.1.18",
+    "typescript": "~5.9.3",
+    "vite": "^7.0.4",
+    "concurrently": "^9.1.0"
+  }
+}

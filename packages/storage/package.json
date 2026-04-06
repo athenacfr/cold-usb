@@ -1,0 +1,13 @@
+{
+  "name": "@coldusb/storage",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@coldusb/crypto": "workspace:*",
+    "@coldusb/wallet-core": "workspace:*",
+    "msgpackr": "^1.11.0"
+  }
+}
