@@ -1,0 +1,21 @@
+#!/bin/bash
+set -e
+
+# Find the Electrobun app bundle
+APP_DIR=$(find /work/src/electrobun-build -maxdepth 1 -type d -name "ColdUSB*" | head -1)
+
+if [ -z "$APP_DIR" ]; then
+  echo "ERROR: Could not find ColdUSB app bundle in /work/src/electrobun-build"
+  exit 1
+fi
+
+# Copy the entire Electrobun bundle to /opt/cold_usb
+# The launcher binary + compressed tarball — launcher extracts on first run
+mkdir -p /opt/cold_usb
+cp -r "$APP_DIR"/* /opt/cold_usb/
+
+# Make the launcher executable
+chmod +x /opt/cold_usb/bin/launcher
+
+# Create a kiosk user
+useradd -m -s /bin/bash kiosk || true

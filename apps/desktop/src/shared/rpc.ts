@@ -120,6 +120,12 @@ export type ColdUSBRPC = {
         params: { data: string };
         response: string;
       };
+
+      // Window operations
+      closeWindow: {
+        params: Record<string, never>;
+        response: void;
+      };
     };
     messages: Record<string, never>;
   }>;

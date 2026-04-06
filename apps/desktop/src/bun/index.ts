@@ -34,8 +34,11 @@ async function getMainViewUrl(): Promise<string> {
   }
 }
 
+// mainWindow declared here so RPC handler can reference it
+let mainWindow: BrowserWindow;
+
 const rpc = BrowserView.defineRPC<ColdUSBRPC>({
-  maxRequestTime: 30000, // 30s for Argon2id operations
+  maxRequestTime: 30000,
   handlers: {
     requests: {
       // Wallet
@@ -64,6 +67,10 @@ const rpc = BrowserView.defineRPC<ColdUSBRPC>({
       generateQr: (params) => handleGenerateQr(params),
       generateQrCompressed: (params) => handleGenerateQrCompressed(params),
       decodeCompressedQr: (params) => handleDecodeCompressedQr(params),
+      // Window
+      closeWindow: () => {
+        mainWindow.close();
+      },
     },
     messages: {},
   },
@@ -71,10 +78,11 @@ const rpc = BrowserView.defineRPC<ColdUSBRPC>({
 
 const url = await getMainViewUrl();
 
-const mainWindow = new BrowserWindow({
+mainWindow = new BrowserWindow({
   title: "Cold USB",
   url,
   rpc,
+  titleBarStyle: "hidden",
   frame: {
     width: 1280,
     height: 800,
@@ -82,3 +90,5 @@ const mainWindow = new BrowserWindow({
     y: 100,
   },
 });
+
+mainWindow.setFullScreen(true);

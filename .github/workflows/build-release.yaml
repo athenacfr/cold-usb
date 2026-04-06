@@ -6,12 +6,8 @@ on:
       - main
 
 jobs:
-  build-wallet:
+  build-app:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        toolchain:
-          - stable
 
     permissions:
       contents: write
@@ -20,39 +16,37 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup PNPM
-        uses: pnpm/action-setup@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          version: 10
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: lts/*
-          cache: "pnpm"
-          cache-dependency-path: wallet/pnpm-lock.yaml
+          bun-version: latest
 
       - name: Setup Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev pkg-config
 
-      - name: Build Cold USB Binary
-        run: |
-          cd wallet
-          pnpm install
-          pnpm tauri build
+      - name: Install Packages
+        run: bun install
 
-      - name: Upload Cold USB Binary Artifact
-        uses: actions/upload-artifact@v6
+      - name: Build Vite Frontend
+        working-directory: apps/desktop
+        run: bun run vite build
+
+      - name: Build Electrobun App
+        working-directory: apps/desktop
+        run: bun run electrobun build --env=stable
+
+      - name: Upload App Bundle Artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: cold_usb_bin
-          path: wallet/src-tauri/target/release/app
+          name: cold_usb_bundle
+          path: apps/desktop/build/stable-linux-x64/
 
   build-img:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    needs: build-wallet
+    needs: build-app
 
     permissions:
       contents: write
@@ -65,16 +59,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup PNPM
-        uses: pnpm/action-setup@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          version: 10
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: lts/*
-          cache: "pnpm"
+          bun-version: latest
 
       - name: Setup Mkosi
         uses: systemd/mkosi@v26
@@ -88,20 +76,20 @@ jobs:
         run: |
           pip install pefile
           sudo apt install -y mtools
-          pnpm install --frozen-lockfile
+          bun install
 
-      - name: Download Cold USB Binary Artifact
-        uses: actions/download-artifact@v6
+      - name: Download App Bundle Artifact
+        uses: actions/download-artifact@v4
         with:
-          name: cold_usb_bin
-          path: ./wallet/src-tauri/target/release/app
+          name: cold_usb_bundle
+          path: apps/desktop/build/stable-linux-x64/
 
       - name: Get Release Version
         id: version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          NEXT_VERSION=$(npx semantic-release --dry-run 2>&1 | grep -oP "next release version is \K[0-9]+\.[0-9]+\.[0-9]+" || echo "")
+          NEXT_VERSION=$(bunx semantic-release --dry-run 2>&1 | grep -oP "next release version is \K[0-9]+\.[0-9]+\.[0-9]+" || echo "")
           if [ -z "$NEXT_VERSION" ]; then
             echo "should_release=false" >> $GITHUB_OUTPUT
             echo "No release needed"
@@ -112,10 +100,11 @@ jobs:
 
       - name: Build IMG
         if: steps.version.outputs.should_release == 'true'
-        run: ./scripts/build.bash --image-version ${{ steps.version.outputs.version }}
+        working-directory: mkosi
+        run: sudo mkosi --image-version=${{ steps.version.outputs.version }}
 
       - name: Release
         if: steps.version.outputs.should_release == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
+        run: bunx semantic-release

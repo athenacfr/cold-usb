@@ -1,6 +1,7 @@
 import React from 'react';
 import { Lock, LockOpen, X } from 'lucide-react';
 import { Button } from '../common/Button';
+import { rpc } from '../../bridge';
 
 interface TopBarProps {
   isLocked: boolean;
@@ -38,7 +39,7 @@ export const TopBar: React.FC<TopBarProps> = ({ isLocked, onLock }) => {
         </Button>
         <Button
           variant="secondary"
-          onClick={() => window.close()}
+          onClick={() => rpc.request.closeWindow({})}
           className="flex items-center gap-2"
         >
           <X className="w-4 h-4" />
