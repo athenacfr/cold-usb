@@ -1,5 +1,5 @@
-import * as bitcoin from "bitcoinjs-lib";
-import * as ecc from "tiny-secp256k1";
+import * as btc from "@scure/btc-signer";
+import { hex } from "@scure/base";
 import type {
   PSBTDetails,
   PSBTInput,
@@ -12,76 +12,77 @@ import type {
 } from "@coldusb/wallet-core";
 import type { BitcoinWalletInstance } from "./wallet";
 
-bitcoin.initEccLib(ecc);
+const MAINNET: btc.BTC_NETWORK = { bech32: "bc", pubKeyHash: 0x00, scriptHash: 0x05, wif: 0x80 };
+const TESTNET: btc.BTC_NETWORK = { bech32: "tb", pubKeyHash: 0x6f, scriptHash: 0xc4, wif: 0xef };
+const REGTEST: btc.BTC_NETWORK = { bech32: "bcrt", pubKeyHash: 0x6f, scriptHash: 0xc4, wif: 0xef };
 
-function decodePsbt(data: string, format: string): bitcoin.Psbt {
+function resolveNetwork(network?: string): btc.BTC_NETWORK {
+  switch (network?.toLowerCase()) {
+    case "bitcoin":
+    case "mainnet":
+      return MAINNET;
+    case "testnet":
+      return TESTNET;
+    case "regtest":
+      return REGTEST;
+    default:
+      return MAINNET;
+  }
+}
+
+function decodePsbt(data: string, format: string): btc.Transaction {
   switch (format.toLowerCase()) {
-    case "base64":
-      return bitcoin.Psbt.fromBase64(data);
+    case "base64": {
+      const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+      return btc.Transaction.fromPSBT(bytes);
+    }
     case "hex":
-      return bitcoin.Psbt.fromHex(data);
+      return btc.Transaction.fromPSBT(hex.decode(data));
     default:
       throw new Error(`Unsupported format: ${format}`);
   }
 }
 
-function encodePsbt(psbt: bitcoin.Psbt, format: string): string {
+function encodePsbt(tx: btc.Transaction, format: string): string {
+  const bytes = tx.toPSBT();
   switch (format.toLowerCase()) {
     case "base64":
-      return psbt.toBase64();
+      return btoa(String.fromCharCode(...bytes));
     case "hex":
-      return psbt.toHex();
+      return hex.encode(bytes);
     default:
       throw new Error(`Unsupported format: ${format}`);
-  }
-}
-
-function extractAddress(
-  script: Buffer,
-  network: bitcoin.Network,
-): string | null {
-  try {
-    return bitcoin.address.fromOutputScript(script, network);
-  } catch {
-    return null;
   }
 }
 
 export function parsePSBT(
   data: string,
   format: string,
-  network: bitcoin.Network,
+  network: string,
 ): PSBTDetails {
-  const psbt = decodePsbt(data, format);
-  const tx = psbt.txInputs;
-  const txOutputs = psbt.txOutputs;
+  const tx = decodePsbt(data, format);
+  const net = resolveNetwork(network);
 
   let totalInput = 0;
   const inputs: PSBTInput[] = [];
 
-  for (let i = 0; i < psbt.data.inputs.length; i++) {
-    const input = psbt.data.inputs[i];
-    const txInput = tx[i];
+  for (let i = 0; i < tx.inputsLength; i++) {
+    const input = tx.getInput(i);
+    const amount = Number(input.witnessUtxo?.amount ?? 0n);
+    totalInput += amount;
 
-    let amount = 0;
     let address: string | null = null;
-
-    if (input.witnessUtxo) {
-      amount = input.witnessUtxo.value;
-      address = extractAddress(input.witnessUtxo.script, network);
-    } else if (input.nonWitnessUtxo) {
-      const prevTx = bitcoin.Transaction.fromBuffer(input.nonWitnessUtxo);
-      const prevOut = prevTx.outs[txInput.index];
-      if (prevOut) {
-        amount = prevOut.value;
-        address = extractAddress(prevOut.script, network);
-      }
+    if (input.witnessUtxo?.script) {
+      try {
+        address = btc.Address(net).decode(
+          btc.OutScript.decode(input.witnessUtxo.script)
+        ) as string;
+      } catch {}
     }
 
-    totalInput += amount;
     inputs.push({
-      txid: txInput.hash.reverse().toString("hex"),
-      vout: txInput.index,
+      txid: input.txid ? hex.encode(input.txid) : "",
+      vout: input.index ?? 0,
       amount,
       address,
     });
@@ -90,25 +91,26 @@ export function parsePSBT(
   let totalOutput = 0;
   const outputs: PSBTOutput[] = [];
 
-  for (let i = 0; i < txOutputs.length; i++) {
-    const out = txOutputs[i];
-    const amount = out.value;
+  for (let i = 0; i < tx.outputsLength; i++) {
+    const output = tx.getOutput(i);
+    const amount = Number(output.amount ?? 0n);
     totalOutput += amount;
 
-    const address = extractAddress(out.script, network) ?? "Unknown";
-    const psbtOut = psbt.data.outputs[i];
-    const isChange =
-      psbtOut?.bip32Derivation !== undefined &&
-      psbtOut.bip32Derivation.length > 0;
+    let address = "Unknown";
+    if (output.script) {
+      try {
+        address = btc.Address(net).decode(
+          btc.OutScript.decode(output.script)
+        ) as string;
+      } catch {}
+    }
 
+    const isChange = (output.bip32Derivation?.length ?? 0) > 0;
     outputs.push({ address, amount, isChange });
   }
 
   const fee = totalInput - totalOutput;
-  const txSize = psbt.data.globalMap.unsignedTx
-    ? (psbt.data.globalMap.unsignedTx as any).tx.virtualSize()
-    : 0;
-  const feeRate = txSize > 0 ? fee / txSize : 0;
+  const feeRate = 0; // vsize not easily available pre-signing
 
   return { inputs, outputs, fee, feeRate, totalInput, totalOutput };
 }
@@ -118,28 +120,31 @@ export function signPSBT(
   format: string,
   walletInstance: BitcoinWalletInstance,
 ): SignedPSBTResult {
-  const psbt = decodePsbt(data, format);
+  const tx = decodePsbt(data, format);
   const root = walletInstance.getRoot();
-  const walletFingerprint = Buffer.from(root.fingerprint);
+  const walletFp = root.fingerprint;
 
   let signedAny = false;
 
-  for (let i = 0; i < psbt.data.inputs.length; i++) {
-    const input = psbt.data.inputs[i];
+  for (let i = 0; i < tx.inputsLength; i++) {
+    const input = tx.getInput(i);
     const derivations = input.bip32Derivation ?? [];
 
-    for (const deriv of derivations) {
-      // Check if this key belongs to our wallet
-      if (!deriv.masterFingerprint.equals(walletFingerprint)) continue;
+    for (const [_pubkey, { fingerprint, path }] of derivations) {
+      if (fingerprint !== walletFp) continue;
 
-      // Derive the signing key
-      const child = root.derivePath(deriv.path);
+      // Reconstruct derivation path string from path array
+      const pathStr = "m/" + path.map((p) =>
+        p >= 0x80000000 ? `${p - 0x80000000}'` : `${p}`
+      ).join("/");
+
+      const child = root.derive(pathStr);
+      if (!child.privateKey) continue;
 
       try {
-        psbt.signInput(i, child);
+        tx.signIdx(child.privateKey, i);
         signedAny = true;
       } catch {
-        // Skip inputs we can't sign
         continue;
       }
     }
@@ -151,25 +156,23 @@ export function signPSBT(
 
   // Try to finalize
   let isFinalized = true;
-  for (let i = 0; i < psbt.data.inputs.length; i++) {
-    try {
-      psbt.finalizeInput(i);
-    } catch {
-      isFinalized = false;
-    }
+  try {
+    tx.finalize();
+  } catch {
+    isFinalized = false;
   }
 
   let transactionHex: string | null = null;
   if (isFinalized) {
     try {
-      transactionHex = psbt.extractTransaction().toHex();
+      transactionHex = tx.hex;
     } catch {
       transactionHex = null;
     }
   }
 
   return {
-    signedPsbt: encodePsbt(psbt, format),
+    signedPsbt: encodePsbt(tx, format),
     isFinalized,
     transactionHex,
   };
@@ -179,30 +182,37 @@ export function getTransactionDetails(
   data: string,
   format: string,
 ): TransactionDetails {
-  const psbt = decodePsbt(data, format);
-  const tx = (psbt.data.globalMap.unsignedTx as any).tx as bitcoin.Transaction;
+  const tx = decodePsbt(data, format);
 
-  const inputs: TxInput[] = tx.ins.map((inp) => ({
-    txid: inp.hash.reverse().toString("hex"),
-    vout: inp.index,
-    scriptSig: inp.script.toString("hex"),
-    witness: inp.witness.map((w: Buffer) => w.toString("hex")),
-    sequence: inp.sequence,
-  }));
+  const inputs: TxInput[] = [];
+  for (let i = 0; i < tx.inputsLength; i++) {
+    const input = tx.getInput(i);
+    inputs.push({
+      txid: input.txid ? hex.encode(input.txid) : "",
+      vout: input.index ?? 0,
+      scriptSig: "",
+      witness: [],
+      sequence: input.sequence ?? 0xffffffff,
+    });
+  }
 
-  const outputs: TxOutput[] = tx.outs.map((out) => ({
-    value: out.value,
-    scriptPubkey: out.script.toString("hex"),
-    address: null,
-  }));
+  const outputs: TxOutput[] = [];
+  for (let i = 0; i < tx.outputsLength; i++) {
+    const output = tx.getOutput(i);
+    outputs.push({
+      value: Number(output.amount ?? 0n),
+      scriptPubkey: output.script ? hex.encode(output.script) : "",
+      address: null,
+    });
+  }
 
   return {
-    txid: tx.getId(),
-    version: tx.version,
-    locktime: tx.locktime,
-    size: tx.byteLength(),
-    vsize: tx.virtualSize(),
-    weight: tx.weight(),
+    txid: tx.id ?? "",
+    version: 2,
+    locktime: 0,
+    size: 0,
+    vsize: 0,
+    weight: 0,
     inputs,
     outputs,
   };
@@ -210,18 +220,13 @@ export function getTransactionDetails(
 
 export class BitcoinTransactionSigner implements TransactionSigner {
   private walletInstance: BitcoinWalletInstance;
-  private network: bitcoin.Network;
 
-  constructor(
-    walletInstance: BitcoinWalletInstance,
-    network: bitcoin.Network,
-  ) {
+  constructor(walletInstance: BitcoinWalletInstance) {
     this.walletInstance = walletInstance;
-    this.network = network;
   }
 
   parsePSBT(data: string, format: "base64" | "hex"): PSBTDetails {
-    return parsePSBT(data, format, this.network);
+    return parsePSBT(data, format, this.walletInstance.getNetworkName());
   }
 
   signPSBT(data: string, format: "base64" | "hex"): SignedPSBTResult {

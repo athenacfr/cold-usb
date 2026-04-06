@@ -1,21 +1,19 @@
-import * as bip39 from "bip39";
+import { generateMnemonic as generate, validateMnemonic as validate, mnemonicToSeedSync } from "@scure/bip39";
+import { wordlist } from "@scure/bip39/wordlists/english";
 
 export function generateMnemonic(wordCount: 12 | 24): string {
   const strength = wordCount === 12 ? 128 : 256;
-  return bip39.generateMnemonic(strength);
+  return generate(wordlist, strength);
 }
 
 export function validateMnemonic(mnemonic: string): boolean {
-  return bip39.validateMnemonic(mnemonic);
+  return validate(mnemonic, wordlist);
 }
 
 export function getWordlist(): string[] {
-  return bip39.wordlists.english;
+  return [...wordlist];
 }
 
-export function mnemonicToSeed(
-  mnemonic: string,
-  passphrase?: string,
-): Buffer {
-  return bip39.mnemonicToSeedSync(mnemonic, passphrase ?? "");
+export function mnemonicToSeed(mnemonic: string, passphrase?: string): Uint8Array {
+  return mnemonicToSeedSync(mnemonic, passphrase ?? "");
 }

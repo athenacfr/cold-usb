@@ -23,23 +23,8 @@ import type {
   WalletPayload,
 } from "@coldusb/wallet-core";
 import { walletState } from "./state";
-import * as bitcoin from "bitcoinjs-lib";
 
 const btcWallet = new BitcoinWallet();
-
-function getNetwork(network: string): bitcoin.Network {
-  switch (network.toLowerCase()) {
-    case "bitcoin":
-    case "mainnet":
-      return bitcoin.networks.bitcoin;
-    case "testnet":
-      return bitcoin.networks.testnet;
-    case "regtest":
-      return bitcoin.networks.regtest;
-    default:
-      return bitcoin.networks.bitcoin;
-  }
-}
 
 function requireUnlocked() {
   const unlocked = walletState.getUnlocked();
@@ -257,9 +242,8 @@ export function handleParsePsbt(params: {
   format: string;
 }): PSBTDetails {
   const unlocked = requireUnlocked();
-  const network = getNetwork(unlocked.network);
   walletState.updateActivity();
-  return parsePSBT(params.psbtData, params.format, network);
+  return parsePSBT(params.psbtData, params.format, unlocked.network);
 }
 
 export function handleSignPsbt(params: {
