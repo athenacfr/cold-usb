@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@theme {
+  /* Custom colors */
+  --color-hacker-black: #000000;
+  --color-hacker-white: #FFFFFF;
+  --color-bitcoin-orange: #F7931A;
+  --color-terminal-green: #00FF00;
+  --color-alert-red: #FF0000;
+  --color-muted-gray: #808080;
+
+  /* Custom fonts */
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Custom animations */
+  --animate-fade-in: fadeIn 0.2s ease-in;
+  --animate-slide-up: slideUp 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@layer base {
+  body {
+    background-color: var(--color-hacker-black);
+    color: var(--color-hacker-white);
+    font-family: var(--font-mono);
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #000000;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #808080;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #F7931A;
+  }
+}
+
+@layer utilities {
+  .glow-orange {
+    box-shadow: 0 0 10px rgba(247, 147, 26, 0.5);
+  }
+
+  .glow-green {
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+  }
+
+  .border-gradient {
+    border-image: linear-gradient(45deg, #F7931A, #FFFFFF) 1;
+  }
+}
